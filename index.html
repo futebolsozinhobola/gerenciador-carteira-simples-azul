@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carteira Simples - Onde Aportar?</title>
+    <!-- Pico.css para um estilo minimalista e responsivo -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    
+    <!-- Estilos customizados -->
+    <style>
+        :root {
+            --spacing-vertical: 2rem;
+        }
+
+        body {
+            padding-bottom: 5rem; /* Espaço para o rodapé/botões fixos */
+        }
+
+        main.container {
+            padding-top: var(--spacing-vertical);
+            padding-bottom: var(--spacing-vertical);
+        }
+
+        /* Destaque para o botão principal */
+        #btn-onde-aportar {
+            font-size: 1.25rem;
+            font-weight: bold;
+            padding: 1rem 1.5rem;
+            background-color: var(--pico-primary-background);
+            border-color: var(--pico-primary-border);
+            color: var(--pico-primary-inverse);
+            transition: transform 0.2s ease;
+        }
+
+        #btn-onde-aportar:hover {
+            transform: scale(1.05);
+        }
+
+        /* Modal para exibir o resultado do aporte */
+        .modal-content {
+            text-align: center;
+        }
+        #modal-resultado-aporte h2 {
+            color: var(--pico-primary);
+            margin-bottom: 0.5rem;
+        }
+        #modal-resultado-aporte p {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        /* Modal de confirmação */
+        #modal-confirmar-reset .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        /* Estilos para a visualização da carteira */
+        .classe-ativo-card {
+            margin-bottom: 2rem;
+        }
+        .classe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .classe-header hgroup {
+            margin-bottom: 0;
+        }
+        .porcentagens {
+            text-align: right;
+        }
+        .porcentagens small {
+            display: block;
+        }
+
+        /* Barra de progresso para comparar alvo vs. atual */
+        .progress-container {
+            position: relative;
+            height: 25px;
+            background-color: var(--pico-form-element-background-color);
+            border-radius: var(--pico-border-radius);
+            margin-bottom: 1rem;
+        }
+        .progress-bar-atual {
+            position: absolute;
+            height: 100%;
+            background-color: var(--pico-primary);
+            border-radius: var(--pico-border-radius);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--pico-primary-inverse);
+            overflow: hidden;
+        }
+        .progress-marker-alvo {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            width: 3px;
+            background-color: var(--pico-h1-color);
+            z-index: 3;
+        }
+        .progress-marker-alvo::after {
+            content: 'Alvo';
+            position: absolute;
+            top: -20px;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: var(--pico-h1-color);
+        }
+
+        /* Tabela de ativos */
+        .tabela-ativos th, .tabela-ativos td {
+            padding: 0.5rem;
+        }
+        .acoes-col {
+            width: 20%;
+        }
+
+        /* Utilitários */
+        .text-center {
+            text-align: center;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .mt-2 {
+            margin-top: 2rem;
+        }
+        .mb-0 {
+            margin-bottom: 0;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .classe-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .porcentagens {
+                text-align: left;
+                margin-top: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container Principal da Aplicação -->
+    <main class="container">
+        
+        <!-- Tela de Configuração Inicial (Setup) -->
+        <section id="setup-view" class="hidden">
+            <hgroup>
+                <h1>Bem-vindo à Carteira Simples!</h1>
+                <h2>Vamos configurar sua alocação de ativos.</h2>
+            </hgroup>
+            <p>Defina as classes de ativos e a porcentagem alvo para cada uma. A soma deve ser 100%.</p>
+            
+            <form id="form-setup">
+                <div id="classes-container">
+                    <!-- Inputs de classe de ativo serão injetados aqui -->
+                </div>
+                <button type="button" id="btn-add-classe" class="secondary outline">Adicionar Classe</button>
+                <hr>
+                <strong>Total: <span id="total-porcentagem">0</span>%</strong>
+                <p id="feedback-porcentagem" class="hidden">A soma deve ser 100% para salvar.</p>
+                <button type="submit" id="btn-salvar-setup" disabled>Salvar Configuração</button>
+            </form>
+        </section>
+
+        <!-- Dashboard Principal -->
+        <section id="dashboard-view" class="hidden">
+            <header class="text-center">
+                <h1>Sua Carteira</h1>
+                <h2 id="patrimonio-total">R$ 0,00</h2>
+                <button id="btn-onde-aportar">ONDE APORTAR?</button>
+            </header>
+
+            <div id="lista-classes-ativos" class="mt-2">
+                <!-- Cards das classes de ativos serão injetados aqui -->
+            </div>
+            
+            <footer class="text-center mt-2">
+                <button id="btn-resetar-carteira" class="secondary outline">Resetar Carteira</button>
+            </footer>
+        </section>
+
+    </main>
+
+    <!-- Modal para Resultado do Aporte -->
+    <dialog id="modal-resultado-aporte">
+        <article class="modal-content">
+            <header>
+                <a href="#" aria-label="Close" class="close btn-close-modal"></a>
+                <h2>O seu próximo aporte deve ser em:</h2>
+            </header>
+            <p id="resultado-aporte-texto">CLASSE, ATIVO</p>
+        </article>
+    </dialog>
+
+    <!-- Modal para Adicionar/Editar Ativo -->
+    <dialog id="modal-gerenciar-ativo">
+        <article>
+            <header>
+                <a href="#" aria-label="Close" class="close btn-close-modal"></a>
+                <h2 id="modal-ativo-titulo">Adicionar Ativo</h2>
+            </header>
+            <form id="form-gerenciar-ativo">
+                <input type="hidden" id="input-classe-id">
+                <input type="hidden" id="input-ativo-id">
+                <label for="input-ativo-nome">
+                    Nome do Ativo (ex: PETR4, IVVB11)
+                    <input type="text" id="input-ativo-nome" name="nome" required>
+                </label>
+                <div class="grid">
+                    <label for="input-ativo-quantidade">
+                        Quantidade
+                        <input type="number" id="input-ativo-quantidade" name="quantidade" min="0" step="any" required>
+                    </label>
+                    <label for="input-ativo-preco-medio">
+                        Preço Médio
+                        <input type="number" id="input-ativo-preco-medio" name="precoMedio" min="0" step="0.01" required>
+                    </label>
+                </div>
+                <footer>
+                    <button type="submit" id="btn-salvar-ativo">Salvar</button>
+                </footer>
+            </form>
+        </article>
+    </dialog>
+    
+    <!-- Modal para Confirmar Reset -->
+    <dialog id="modal-confirmar-reset">
+        <article class="modal-content">
+             <header>
+                <a href="#" aria-label="Close" class="close btn-close-modal"></a>
+                <h3>Confirmar Ação</h3>
+            </header>
+            <p>Tem certeza que deseja apagar todos os dados da sua carteira? Esta ação não pode ser desfeita.</p>
+            <div class="modal-buttons">
+                <button id="btn-cancelar-reset" class="secondary outline">Cancelar</button>
+                <button id="btn-confirmar-reset" class="contrast">Confirmar e Apagar</button>
+            </div>
+        </article>
+    </dialog>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        
+        // =====================================================================
+        // ESTADO DA APLICAÇÃO E VARIÁVEIS GLOBAIS
+        // =====================================================================
+        
+        let portfolio = null;
+        const STORAGE_KEY = 'carteiraSimplesData';
+
+        // Elementos da UI
+        const setupView = document.getElementById('setup-view');
+        const dashboardView = document.getElementById('dashboard-view');
+        const patrimonioTotalEl = document.getElementById('patrimonio-total');
+        const listaClassesAtivosEl = document.getElementById('lista-classes-ativos');
+        
+        // Modais
+        const modalResultadoAporte = document.getElementById('modal-resultado-aporte');
+        const modalGerenciarAtivo = document.getElementById('modal-gerenciar-ativo');
+        const modalConfirmarReset = document.getElementById('modal-confirmar-reset');
+        
+        // Formulários e Botões
+        const formSetup = document.getElementById('form-setup');
+        const formGerenciarAtivo = document.getElementById('form-gerenciar-ativo');
+        const btnSalvarSetup = document.getElementById('btn-salvar-setup');
+        const feedbackPorcentagemEl = document.getElementById('feedback-porcentagem');
+
+        // =====================================================================
+        // LÓGICA DE PERSISTÊNCIA (localStorage)
+        // =====================================================================
+
+        function salvarPortfolio() {
+            if (portfolio) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio));
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+
+        function carregarPortfolio() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            portfolio = data ? JSON.parse(data) : null;
+        }
+        
+        // =====================================================================
+        // LÓGICA DE NEGÓCIO E CÁLCULOS
+        // =====================================================================
+
+        function calcularDadosDashboard() {
+            if (!portfolio || !portfolio.classes) return;
+
+            let patrimonioTotalCalculado = 0;
+            portfolio.classes.forEach(classe => {
+                let valorTotalClasse = 0;
+                if (classe.ativos) {
+                    classe.ativos.forEach(ativo => {
+                        ativo.valorTotal = (ativo.quantidade || 0) * (ativo.precoMedio || 0);
+                        valorTotalClasse += ativo.valorTotal;
+                    });
+                }
+                classe.valorTotal = valorTotalClasse;
+                patrimonioTotalCalculado += valorTotalClasse;
+            });
+
+            portfolio.patrimonioTotal = patrimonioTotalCalculado;
+
+            portfolio.classes.forEach(classe => {
+                if (patrimonioTotalCalculado > 0) {
+                    classe.percentualAtual = (classe.valorTotal / patrimonioTotalCalculado) * 100;
+                } else {
+                    classe.percentualAtual = 0;
+                }
+            });
+        }
+
+        function encontrarOndeAportar() {
+            if (!portfolio || !portfolio.classes || portfolio.classes.length === 0) {
+                return null;
+            }
+
+            let classeParaAportar = null;
+            let maiorDiferenca = -Infinity;
+
+            portfolio.classes.forEach(classe => {
+                const diferenca = classe.alvo - classe.percentualAtual;
+                if (diferenca > maiorDiferenca) {
+                    maiorDiferenca = diferenca;
+                    classeParaAportar = classe;
+                }
+            });
+
+            if (!classeParaAportar) {
+                classeParaAportar = portfolio.classes.reduce((prev, current) => (prev.alvo > current.alvo) ? prev : current);
+            }
+            
+            let ativoParaAportar = null;
+            if (classeParaAportar && classeParaAportar.ativos && classeParaAportar.ativos.length > 0) {
+                ativoParaAportar = classeParaAportar.ativos.reduce((menor, atual) => (atual.valorTotal < menor.valorTotal) ? atual : menor);
+            }
+
+            return { classe: classeParaAportar, ativo: ativoParaAportar };
+        }
+
+        // =====================================================================
+        // LÓGICA DE RENDERIZAÇÃO (UI)
+        // =====================================================================
+
+        function render() {
+            if (!portfolio) {
+                renderSetupView();
+                dashboardView.classList.add('hidden');
+                setupView.classList.remove('hidden');
+            } else {
+                calcularDadosDashboard();
+                renderDashboard();
+                setupView.classList.add('hidden');
+                dashboardView.classList.remove('hidden');
+            }
+        }
+
+        function renderSetupView() {
+            const container = document.getElementById('classes-container');
+            container.innerHTML = `
+                <div class="grid">
+                    <input type="text" name="classe-nome" placeholder="Nome da Classe (ex: Ações BR)" required>
+                    <input type="number" name="classe-alvo" placeholder="% Alvo" min="0" max="100" required>
+                </div>
+            `;
+            atualizarTotalPorcentagemSetup();
+        }
+        
+        function renderDashboard() {
+            patrimonioTotalEl.textContent = formatarMoeda(portfolio.patrimonioTotal || 0);
+            listaClassesAtivosEl.innerHTML = ''; 
+
+            portfolio.classes.forEach((classe, index) => {
+                const cardClasse = document.createElement('article');
+                cardClasse.className = 'classe-ativo-card';
+                cardClasse.innerHTML = `
+                    <div class="classe-header">
+                        <hgroup class="mb-0">
+                            <h3>${classe.nome}</h3>
+                            <h4>${formatarMoeda(classe.valorTotal || 0)}</h4>
+                        </hgroup>
+                        <div class="porcentagens">
+                            <strong>${(classe.percentualAtual || 0).toFixed(2)}%</strong>
+                            <small>Alvo: ${classe.alvo.toFixed(2)}%</small>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar-atual" style="width: ${Math.min(classe.percentualAtual || 0, 100)}%;">
+                           ${(classe.percentualAtual || 0).toFixed(1)}%
+                        </div>
+                        <div class="progress-marker-alvo" style="left: ${classe.alvo}%;"></div>
+                    </div>
+
+                    <table class="tabela-ativos">
+                        <thead>
+                            <tr>
+                                <th>Ativo</th>
+                                <th>Qtd.</th>
+                                <th>Preço Médio</th>
+                                <th>Valor Total</th>
+                                <th class="acoes-col">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderTabelaAtivos(classe.ativos || [], index)}
+                        </tbody>
+                    </table>
+                    <button data-classe-id="${index}" class="btn-adicionar-ativo">Adicionar Ativo</button>
+                `;
+                listaClassesAtivosEl.appendChild(cardClasse);
+            });
+        }
+
+        function renderTabelaAtivos(ativos, classeId) {
+            if (ativos.length === 0) {
+                return `<tr><td colspan="5" class="text-center">Nenhum ativo cadastrado.</td></tr>`;
+            }
+            return ativos.map((ativo, ativoId) => `
+                <tr>
+                    <td>${ativo.nome}</td>
+                    <td>${ativo.quantidade}</td>
+                    <td>${formatarMoeda(ativo.precoMedio)}</td>
+                    <td>${formatarMoeda(ativo.valorTotal)}</td>
+                    <td>
+                        <div class="grid">
+                            <button data-classe-id="${classeId}" data-ativo-id="${ativoId}" class="btn-editar-ativo secondary outline" style="padding: 0.25rem 0.5rem;">Editar</button>
+                            <button data-classe-id="${classeId}" data-ativo-id="${ativoId}" class="btn-remover-ativo contrast outline" style="padding: 0.25rem 0.5rem;">Remover</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // =====================================================================
+        // MANIPULADORES DE EVENTOS (Event Handlers)
+        // =====================================================================
+
+        // --- Eventos da Tela de Setup ---
+        
+        formSetup.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nomes = Array.from(document.querySelectorAll('[name="classe-nome"]')).map(i => i.value.trim());
+            const alvos = Array.from(document.querySelectorAll('[name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
+
+            const total = alvos.reduce((sum, val) => sum + val, 0);
+            if (Math.abs(total - 100) > 0.01) {
+                return; // A validação já acontece no input, isso é uma segurança extra.
+            }
+
+            portfolio = {
+                patrimonioTotal: 0,
+                classes: nomes.map((nome, index) => ({
+                    nome: nome,
+                    alvo: alvos[index],
+                    valorTotal: 0,
+                    percentualAtual: 0,
+                    ativos: []
+                }))
+            };
+            
+            salvarPortfolio();
+            render();
+        });
+
+        document.getElementById('btn-add-classe').addEventListener('click', () => {
+            const container = document.getElementById('classes-container');
+            const newGroup = document.createElement('div');
+            newGroup.className = 'grid';
+            newGroup.innerHTML = `
+                <input type="text" name="classe-nome" placeholder="Nome da Classe" required>
+                <input type="number" name="classe-alvo" placeholder="% Alvo" min="0" max="100" required>
+            `;
+            container.appendChild(newGroup);
+            atualizarTotalPorcentagemSetup();
+        });
+        
+        formSetup.addEventListener('input', atualizarTotalPorcentagemSetup);
+
+        function atualizarTotalPorcentagemSetup() {
+            const alvos = Array.from(document.querySelectorAll('[name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
+            const total = alvos.reduce((sum, val) => sum + val, 0);
+            document.getElementById('total-porcentagem').textContent = total.toFixed(2);
+
+            // Habilita/desabilita o botão de salvar e mostra feedback
+            if (Math.abs(total - 100) < 0.01) {
+                btnSalvarSetup.disabled = false;
+                feedbackPorcentagemEl.textContent = "Total de 100% atingido. Pode salvar!";
+                feedbackPorcentagemEl.className = "pico-color-green-500";
+            } else {
+                btnSalvarSetup.disabled = true;
+                feedbackPorcentagemEl.textContent = "A soma deve ser 100% para salvar.";
+                feedbackPorcentagemEl.className = "pico-color-red-500";
+            }
+            feedbackPorcentagemEl.classList.remove('hidden');
+        }
+
+        // --- Eventos do Dashboard ---
+
+        document.getElementById('btn-onde-aportar').addEventListener('click', () => {
+            const resultado = encontrarOndeAportar();
+            const textoResultado = document.getElementById('resultado-aporte-texto');
+
+            if (resultado && resultado.classe) {
+                if (resultado.ativo) {
+                    textoResultado.textContent = `Aporte em ${resultado.classe.nome}, no ativo ${resultado.ativo.nome}`;
+                } else {
+                    textoResultado.textContent = `Aporte em ${resultado.classe.nome}. Cadastre um ativo para começar.`;
+                }
+            } else {
+                textoResultado.textContent = 'Não foi possível determinar. Verifique sua configuração.';
+            }
+            modalResultadoAporte.showModal();
+        });
+        
+        document.getElementById('btn-resetar-carteira').addEventListener('click', () => {
+            modalConfirmarReset.showModal();
+        });
+
+        // --- Eventos do Modal de Confirmação de Reset ---
+        document.getElementById('btn-cancelar-reset').addEventListener('click', () => {
+            modalConfirmarReset.close();
+        });
+
+        document.getElementById('btn-confirmar-reset').addEventListener('click', () => {
+            portfolio = null;
+            salvarPortfolio();
+            render();
+            modalConfirmarReset.close();
+        });
+
+        // --- Eventos de Gerenciamento de Ativos (usando delegação de eventos) ---
+
+        dashboardView.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            if (target.matches('.btn-adicionar-ativo')) {
+                abrirModalGerenciarAtivo(target.dataset.classeId);
+            }
+            
+            if (target.matches('.btn-editar-ativo')) {
+                abrirModalGerenciarAtivo(target.dataset.classeId, target.dataset.ativoId);
+            }
+
+            if (target.matches('.btn-remover-ativo')) {
+                const { classeId, ativoId } = target.dataset;
+                if (confirm('Tem certeza que deseja remover este ativo?')) {
+                    portfolio.classes[classeId].ativos.splice(ativoId, 1);
+                    salvarPortfolio();
+                    render();
+                }
+            }
+        });
+
+        formGerenciarAtivo.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const classeId = document.getElementById('input-classe-id').value;
+            const ativoId = document.getElementById('input-ativo-id').value;
+            
+            const ativoData = {
+                nome: document.getElementById('input-ativo-nome').value.trim().toUpperCase(),
+                quantidade: parseFloat(document.getElementById('input-ativo-quantidade').value),
+                precoMedio: parseFloat(document.getElementById('input-ativo-preco-medio').value)
+            };
+
+            if (ativoId) { // Editando
+                portfolio.classes[classeId].ativos[ativoId] = ativoData;
+            } else { // Adicionando
+                if (!portfolio.classes[classeId].ativos) {
+                    portfolio.classes[classeId].ativos = [];
+                }
+                portfolio.classes[classeId].ativos.push(ativoData);
+            }
+
+            salvarPortfolio();
+            render();
+            modalGerenciarAtivo.close();
+        });
+        
+        // --- Evento Global para Fechar Modais ---
+        document.querySelectorAll('.btn-close-modal').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const modal = btn.closest('dialog');
+                if (modal) {
+                    modal.close();
+                }
+            });
+        });
+
+        // =====================================================================
+        // FUNÇÕES AUXILIARES E INICIALIZAÇÃO
+        // =====================================================================
+
+        function abrirModalGerenciarAtivo(classeId, ativoId = null) {
+            formGerenciarAtivo.reset();
+            document.getElementById('input-classe-id').value = classeId;
+            const modalTitulo = document.getElementById('modal-ativo-titulo');
+            
+            if (ativoId !== null) { // Editando
+                modalTitulo.textContent = 'Editar Ativo';
+                const ativo = portfolio.classes[classeId].ativos[ativoId];
+                document.getElementById('input-ativo-id').value = ativoId;
+                document.getElementById('input-ativo-nome').value = ativo.nome;
+                document.getElementById('input-ativo-quantidade').value = ativo.quantidade;
+                document.getElementById('input-ativo-preco-medio').value = ativo.precoMedio;
+            } else { // Adicionando
+                modalTitulo.textContent = 'Adicionar Ativo';
+                document.getElementById('input-ativo-id').value = '';
+            }
+            modalGerenciarAtivo.showModal();
+        }
+
+        function formatarMoeda(valor) {
+            return (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function init() {
+            carregarPortfolio();
+            render();
+        }
+
+        init();
+    });
+    </script>
+</body>
+</html>
