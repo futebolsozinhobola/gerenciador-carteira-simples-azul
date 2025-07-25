@@ -37,7 +37,7 @@
             transform: scale(1.05);
         }
 
-        /* Modal para exibir o resultado do aporte */
+        /* Modais */
         .modal-content {
             text-align: center;
         }
@@ -50,8 +50,8 @@
             font-weight: bold;
         }
         
-        /* Modal de confirmação */
-        #modal-confirmar-reset .modal-buttons {
+        /* Botões nos modais de confirmação e edição */
+        .modal-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
@@ -61,6 +61,9 @@
         /* Estilos para a visualização da carteira */
         .classe-ativo-card {
             margin-bottom: 2rem;
+            border: 1px solid var(--pico-card-border-color);
+            padding: 1.5rem;
+            border-radius: var(--pico-border-radius);
         }
         .classe-header {
             display: flex;
@@ -85,6 +88,7 @@
             background-color: var(--pico-form-element-background-color);
             border-radius: var(--pico-border-radius);
             margin-bottom: 1rem;
+            overflow: hidden;
         }
         .progress-bar-atual {
             position: absolute;
@@ -98,6 +102,7 @@
             font-size: 0.75rem;
             color: var(--pico-primary-inverse);
             overflow: hidden;
+            white-space: nowrap;
         }
         .progress-marker-alvo {
             position: absolute;
@@ -121,7 +126,16 @@
             padding: 0.5rem;
         }
         .acoes-col {
-            width: 20%;
+            width: 150px;
+        }
+
+        /* Linha de input para edição de alocação */
+        .classe-edit-row {
+            display: grid;
+            grid-template-columns: 1fr 100px 50px;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
         }
 
         /* Utilitários */
@@ -148,6 +162,10 @@
                 text-align: left;
                 margin-top: 0.5rem;
             }
+            .classe-edit-row {
+                grid-template-columns: 1fr 80px 40px;
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -168,10 +186,10 @@
                 <div id="classes-container">
                     <!-- Inputs de classe de ativo serão injetados aqui -->
                 </div>
-                <button type="button" id="btn-add-classe" class="secondary outline">Adicionar Classe</button>
+                <button type="button" id="btn-add-classe-setup" class="secondary outline">Adicionar Classe</button>
                 <hr>
-                <strong>Total: <span id="total-porcentagem">0</span>%</strong>
-                <p id="feedback-porcentagem" class="hidden">A soma deve ser 100% para salvar.</p>
+                <strong>Total: <span id="total-porcentagem-setup">0</span>%</strong>
+                <p id="feedback-porcentagem-setup" class="hidden">A soma deve ser 100% para salvar.</p>
                 <button type="submit" id="btn-salvar-setup" disabled>Salvar Configuração</button>
             </form>
         </section>
@@ -188,7 +206,8 @@
                 <!-- Cards das classes de ativos serão injetados aqui -->
             </div>
             
-            <footer class="text-center mt-2">
+            <footer class="text-center mt-2 modal-buttons">
+                <button id="btn-editar-alocacao" class="secondary">Editar Alocação</button>
                 <button id="btn-resetar-carteira" class="secondary outline">Resetar Carteira</button>
             </footer>
         </section>
@@ -237,17 +256,43 @@
         </article>
     </dialog>
     
-    <!-- Modal para Confirmar Reset -->
-    <dialog id="modal-confirmar-reset">
+    <!-- Modal para Editar Alocação (NOVO) -->
+    <dialog id="modal-editar-alocacao">
+        <article>
+            <header>
+                <a href="#" aria-label="Close" class="close btn-close-modal"></a>
+                <h2>Editar Alocação</h2>
+            </header>
+            <p>Ajuste, adicione ou remova classes de ativos. A soma dos alvos deve ser 100%.</p>
+            <form id="form-editar-alocacao">
+                <div id="editar-classes-container">
+                    <!-- Inputs das classes existentes serão injetados aqui -->
+                </div>
+                <button type="button" id="btn-add-classe-edit" class="secondary outline">Adicionar Nova Classe</button>
+                <hr>
+                <strong>Total: <span id="total-porcentagem-edit">0</span>%</strong>
+                <p id="feedback-porcentagem-edit" class="hidden">A soma deve ser 100% para salvar.</p>
+                <footer>
+                    <div class="modal-buttons">
+                         <button type="button" class="secondary outline btn-close-modal">Cancelar</button>
+                         <button type="submit" id="btn-salvar-alocacao">Salvar Alterações</button>
+                    </div>
+                </footer>
+            </form>
+        </article>
+    </dialog>
+
+    <!-- Modal de Confirmação Genérico (NOVO) -->
+    <dialog id="modal-confirmacao">
         <article class="modal-content">
              <header>
                 <a href="#" aria-label="Close" class="close btn-close-modal"></a>
                 <h3>Confirmar Ação</h3>
             </header>
-            <p>Tem certeza que deseja apagar todos os dados da sua carteira? Esta ação não pode ser desfeita.</p>
+            <p id="confirmacao-mensagem">Tem certeza?</p>
             <div class="modal-buttons">
-                <button id="btn-cancelar-reset" class="secondary outline">Cancelar</button>
-                <button id="btn-confirmar-reset" class="contrast">Confirmar e Apagar</button>
+                <button id="btn-cancelar-confirmacao" class="secondary outline">Cancelar</button>
+                <button id="btn-confirmar-acao" class="contrast">Confirmar</button>
             </div>
         </article>
     </dialog>
@@ -272,13 +317,13 @@
         // Modais
         const modalResultadoAporte = document.getElementById('modal-resultado-aporte');
         const modalGerenciarAtivo = document.getElementById('modal-gerenciar-ativo');
-        const modalConfirmarReset = document.getElementById('modal-confirmar-reset');
+        const modalEditarAlocacao = document.getElementById('modal-editar-alocacao');
+        const modalConfirmacao = document.getElementById('modal-confirmacao');
         
         // Formulários e Botões
         const formSetup = document.getElementById('form-setup');
         const formGerenciarAtivo = document.getElementById('form-gerenciar-ativo');
-        const btnSalvarSetup = document.getElementById('btn-salvar-setup');
-        const feedbackPorcentagemEl = document.getElementById('feedback-porcentagem');
+        const formEditarAlocacao = document.getElementById('form-editar-alocacao');
 
         // =====================================================================
         // LÓGICA DE PERSISTÊNCIA (localStorage)
@@ -320,34 +365,30 @@
             portfolio.patrimonioTotal = patrimonioTotalCalculado;
 
             portfolio.classes.forEach(classe => {
-                if (patrimonioTotalCalculado > 0) {
-                    classe.percentualAtual = (classe.valorTotal / patrimonioTotalCalculado) * 100;
-                } else {
-                    classe.percentualAtual = 0;
-                }
+                classe.percentualAtual = (patrimonioTotalCalculado > 0) 
+                    ? (classe.valorTotal / patrimonioTotalCalculado) * 100 
+                    : 0;
             });
         }
 
         function encontrarOndeAportar() {
-            if (!portfolio || !portfolio.classes || portfolio.classes.length === 0) {
-                return null;
-            }
+            if (!portfolio || !portfolio.classes || portfolio.classes.length === 0) return null;
 
             let classeParaAportar = null;
             let maiorDiferenca = -Infinity;
 
             portfolio.classes.forEach(classe => {
-                const diferenca = classe.alvo - classe.percentualAtual;
+                const diferenca = classe.alvo - (classe.percentualAtual || 0);
                 if (diferenca > maiorDiferenca) {
                     maiorDiferenca = diferenca;
                     classeParaAportar = classe;
                 }
             });
-
-            if (!classeParaAportar) {
-                classeParaAportar = portfolio.classes.reduce((prev, current) => (prev.alvo > current.alvo) ? prev : current);
-            }
             
+            if (!classeParaAportar && portfolio.classes.length > 0) {
+                 classeParaAportar = portfolio.classes.reduce((prev, current) => (prev.alvo > current.alvo) ? prev : current);
+            }
+
             let ativoParaAportar = null;
             if (classeParaAportar && classeParaAportar.ativos && classeParaAportar.ativos.length > 0) {
                 ativoParaAportar = classeParaAportar.ativos.reduce((menor, atual) => (atual.valorTotal < menor.valorTotal) ? atual : menor);
@@ -375,12 +416,8 @@
 
         function renderSetupView() {
             const container = document.getElementById('classes-container');
-            container.innerHTML = `
-                <div class="grid">
-                    <input type="text" name="classe-nome" placeholder="Nome da Classe (ex: Ações BR)" required>
-                    <input type="number" name="classe-alvo" placeholder="% Alvo" min="0" max="100" required>
-                </div>
-            `;
+            container.innerHTML = ''; // Limpa antes de adicionar
+            adicionarLinhaClasseSetup(); // Adiciona a primeira linha
             atualizarTotalPorcentagemSetup();
         }
         
@@ -388,7 +425,7 @@
             patrimonioTotalEl.textContent = formatarMoeda(portfolio.patrimonioTotal || 0);
             listaClassesAtivosEl.innerHTML = ''; 
 
-            portfolio.classes.forEach((classe, index) => {
+            portfolio.classes.forEach(classe => {
                 const cardClasse = document.createElement('article');
                 cardClasse.className = 'classe-ativo-card';
                 cardClasse.innerHTML = `
@@ -421,20 +458,20 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${renderTabelaAtivos(classe.ativos || [], index)}
+                            ${renderTabelaAtivos(classe.ativos || [], classe.id)}
                         </tbody>
                     </table>
-                    <button data-classe-id="${index}" class="btn-adicionar-ativo">Adicionar Ativo</button>
+                    <button data-classe-id="${classe.id}" class="btn-adicionar-ativo">Adicionar Ativo</button>
                 `;
                 listaClassesAtivosEl.appendChild(cardClasse);
             });
         }
 
         function renderTabelaAtivos(ativos, classeId) {
-            if (ativos.length === 0) {
+            if (!ativos || ativos.length === 0) {
                 return `<tr><td colspan="5" class="text-center">Nenhum ativo cadastrado.</td></tr>`;
             }
-            return ativos.map((ativo, ativoId) => `
+            return ativos.map((ativo, ativoIndex) => `
                 <tr>
                     <td>${ativo.nome}</td>
                     <td>${ativo.quantidade}</td>
@@ -442,8 +479,8 @@
                     <td>${formatarMoeda(ativo.valorTotal)}</td>
                     <td>
                         <div class="grid">
-                            <button data-classe-id="${classeId}" data-ativo-id="${ativoId}" class="btn-editar-ativo secondary outline" style="padding: 0.25rem 0.5rem;">Editar</button>
-                            <button data-classe-id="${classeId}" data-ativo-id="${ativoId}" class="btn-remover-ativo contrast outline" style="padding: 0.25rem 0.5rem;">Remover</button>
+                            <button data-classe-id="${classeId}" data-ativo-index="${ativoIndex}" class="btn-editar-ativo secondary outline" style="padding: 0.25rem 0.5rem;">Editar</button>
+                            <button data-classe-id="${classeId}" data-ativo-index="${ativoIndex}" class="btn-remover-ativo contrast outline" style="padding: 0.25rem 0.5rem;">Remover</button>
                         </div>
                     </td>
                 </tr>
@@ -458,17 +495,13 @@
         
         formSetup.addEventListener('submit', (e) => {
             e.preventDefault();
-            const nomes = Array.from(document.querySelectorAll('[name="classe-nome"]')).map(i => i.value.trim());
-            const alvos = Array.from(document.querySelectorAll('[name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
-
-            const total = alvos.reduce((sum, val) => sum + val, 0);
-            if (Math.abs(total - 100) > 0.01) {
-                return; // A validação já acontece no input, isso é uma segurança extra.
-            }
+            const nomes = Array.from(document.querySelectorAll('#form-setup [name="classe-nome"]')).map(i => i.value.trim());
+            const alvos = Array.from(document.querySelectorAll('#form-setup [name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
 
             portfolio = {
                 patrimonioTotal: 0,
                 classes: nomes.map((nome, index) => ({
+                    id: 'c' + Date.now() + index, // ID único para a classe
                     nome: nome,
                     alvo: alvos[index],
                     valorTotal: 0,
@@ -481,36 +514,39 @@
             render();
         });
 
-        document.getElementById('btn-add-classe').addEventListener('click', () => {
+        document.getElementById('btn-add-classe-setup').addEventListener('click', adicionarLinhaClasseSetup);
+        
+        function adicionarLinhaClasseSetup() {
             const container = document.getElementById('classes-container');
             const newGroup = document.createElement('div');
             newGroup.className = 'grid';
             newGroup.innerHTML = `
-                <input type="text" name="classe-nome" placeholder="Nome da Classe" required>
+                <input type="text" name="classe-nome" placeholder="Nome da Classe (ex: Ações BR)" required>
                 <input type="number" name="classe-alvo" placeholder="% Alvo" min="0" max="100" required>
             `;
             container.appendChild(newGroup);
-            atualizarTotalPorcentagemSetup();
-        });
-        
+        }
+
         formSetup.addEventListener('input', atualizarTotalPorcentagemSetup);
 
         function atualizarTotalPorcentagemSetup() {
-            const alvos = Array.from(document.querySelectorAll('[name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
+            const alvos = Array.from(document.querySelectorAll('#form-setup [name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
             const total = alvos.reduce((sum, val) => sum + val, 0);
-            document.getElementById('total-porcentagem').textContent = total.toFixed(2);
+            document.getElementById('total-porcentagem-setup').textContent = total.toFixed(2);
+            
+            const feedbackEl = document.getElementById('feedback-porcentagem-setup');
+            const btnSalvar = document.getElementById('btn-salvar-setup');
 
-            // Habilita/desabilita o botão de salvar e mostra feedback
             if (Math.abs(total - 100) < 0.01) {
-                btnSalvarSetup.disabled = false;
-                feedbackPorcentagemEl.textContent = "Total de 100% atingido. Pode salvar!";
-                feedbackPorcentagemEl.className = "pico-color-green-500";
+                btnSalvar.disabled = false;
+                feedbackEl.textContent = "Total de 100% atingido. Pode salvar!";
+                feedbackEl.style.color = 'var(--pico-color-green-500)';
             } else {
-                btnSalvarSetup.disabled = true;
-                feedbackPorcentagemEl.textContent = "A soma deve ser 100% para salvar.";
-                feedbackPorcentagemEl.className = "pico-color-red-500";
+                btnSalvar.disabled = true;
+                feedbackEl.textContent = "A soma deve ser 100% para salvar.";
+                feedbackEl.style.color = 'var(--pico-color-red-500)';
             }
-            feedbackPorcentagemEl.classList.remove('hidden');
+            feedbackEl.classList.remove('hidden');
         }
 
         // --- Eventos do Dashboard ---
@@ -532,41 +568,39 @@
         });
         
         document.getElementById('btn-resetar-carteira').addEventListener('click', () => {
-            modalConfirmarReset.showModal();
+             mostrarConfirmacao('Tem certeza que deseja apagar todos os dados da sua carteira? Esta ação não pode ser desfeita.', () => {
+                portfolio = null;
+                salvarPortfolio();
+                render();
+            });
         });
 
-        // --- Eventos do Modal de Confirmação de Reset ---
-        document.getElementById('btn-cancelar-reset').addEventListener('click', () => {
-            modalConfirmarReset.close();
-        });
-
-        document.getElementById('btn-confirmar-reset').addEventListener('click', () => {
-            portfolio = null;
-            salvarPortfolio();
-            render();
-            modalConfirmarReset.close();
-        });
+        document.getElementById('btn-editar-alocacao').addEventListener('click', abrirModalEditarAlocacao);
 
         // --- Eventos de Gerenciamento de Ativos (usando delegação de eventos) ---
 
         dashboardView.addEventListener('click', (e) => {
-            const target = e.target;
+            const target = e.target.closest('button');
+            if (!target) return;
             
+            const { classeId, ativoIndex } = target.dataset;
+
             if (target.matches('.btn-adicionar-ativo')) {
-                abrirModalGerenciarAtivo(target.dataset.classeId);
+                abrirModalGerenciarAtivo(classeId);
             }
             
             if (target.matches('.btn-editar-ativo')) {
-                abrirModalGerenciarAtivo(target.dataset.classeId, target.dataset.ativoId);
+                abrirModalGerenciarAtivo(classeId, ativoIndex);
             }
 
             if (target.matches('.btn-remover-ativo')) {
-                const { classeId, ativoId } = target.dataset;
-                if (confirm('Tem certeza que deseja remover este ativo?')) {
-                    portfolio.classes[classeId].ativos.splice(ativoId, 1);
+                const classe = portfolio.classes.find(c => c.id === classeId);
+                const ativo = classe.ativos[ativoIndex];
+                mostrarConfirmacao(`Tem certeza que deseja remover o ativo ${ativo.nome}?`, () => {
+                    classe.ativos.splice(ativoIndex, 1);
                     salvarPortfolio();
                     render();
-                }
+                });
             }
         });
 
@@ -581,13 +615,13 @@
                 precoMedio: parseFloat(document.getElementById('input-ativo-preco-medio').value)
             };
 
+            const classe = portfolio.classes.find(c => c.id === classeId);
+
             if (ativoId) { // Editando
-                portfolio.classes[classeId].ativos[ativoId] = ativoData;
+                classe.ativos[ativoId] = ativoData;
             } else { // Adicionando
-                if (!portfolio.classes[classeId].ativos) {
-                    portfolio.classes[classeId].ativos = [];
-                }
-                portfolio.classes[classeId].ativos.push(ativoData);
+                if (!classe.ativos) classe.ativos = [];
+                classe.ativos.push(ativoData);
             }
 
             salvarPortfolio();
@@ -595,38 +629,159 @@
             modalGerenciarAtivo.close();
         });
         
+        // --- Eventos do Modal de Edição de Alocação ---
+        
+        document.getElementById('btn-add-classe-edit').addEventListener('click', () => {
+            adicionarLinhaClasseEdit();
+        });
+
+        formEditarAlocacao.addEventListener('input', atualizarTotalPorcentagemEdit);
+        
+        formEditarAlocacao.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const container = document.getElementById('editar-classes-container');
+            const rows = container.querySelectorAll('.classe-edit-row');
+            const novasClasses = [];
+            let total = 0;
+
+            rows.forEach(row => {
+                const id = row.dataset.classeId;
+                const nome = row.querySelector('[name="classe-nome"]').value.trim();
+                const alvo = parseFloat(row.querySelector('[name="classe-alvo"]').value) || 0;
+                total += alvo;
+
+                if (nome) {
+                    const classeExistente = portfolio.classes.find(c => c.id === id);
+                    novasClasses.push({
+                        id: id || 'c' + Date.now() + Math.random(),
+                        nome: nome,
+                        alvo: alvo,
+                        ativos: classeExistente ? classeExistente.ativos : [] // Mantém os ativos
+                    });
+                }
+            });
+
+            if (Math.abs(total - 100) > 0.01) {
+                // A validação no botão já previne, mas é uma segurança extra
+                return;
+            }
+
+            portfolio.classes = novasClasses;
+            salvarPortfolio();
+            render();
+            modalEditarAlocacao.close();
+        });
+
         // --- Evento Global para Fechar Modais ---
         document.querySelectorAll('.btn-close-modal').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const modal = btn.closest('dialog');
-                if (modal) {
-                    modal.close();
-                }
+                if (modal) modal.close();
             });
         });
 
         // =====================================================================
-        // FUNÇÕES AUXILIARES E INICIALIZAÇÃO
+        // FUNÇÕES AUXILIARES E DE MODAIS
         // =====================================================================
 
-        function abrirModalGerenciarAtivo(classeId, ativoId = null) {
+        function abrirModalGerenciarAtivo(classeId, ativoIndex = null) {
             formGerenciarAtivo.reset();
             document.getElementById('input-classe-id').value = classeId;
             const modalTitulo = document.getElementById('modal-ativo-titulo');
+            const classe = portfolio.classes.find(c => c.id === classeId);
             
-            if (ativoId !== null) { // Editando
-                modalTitulo.textContent = 'Editar Ativo';
-                const ativo = portfolio.classes[classeId].ativos[ativoId];
-                document.getElementById('input-ativo-id').value = ativoId;
+            if (ativoIndex !== null && classe && classe.ativos[ativoIndex]) { // Editando
+                modalTitulo.textContent = `Editar Ativo em ${classe.nome}`;
+                const ativo = classe.ativos[ativoIndex];
+                document.getElementById('input-ativo-id').value = ativoIndex;
                 document.getElementById('input-ativo-nome').value = ativo.nome;
                 document.getElementById('input-ativo-quantidade').value = ativo.quantidade;
                 document.getElementById('input-ativo-preco-medio').value = ativo.precoMedio;
             } else { // Adicionando
-                modalTitulo.textContent = 'Adicionar Ativo';
+                modalTitulo.textContent = `Adicionar Ativo em ${classe.nome}`;
                 document.getElementById('input-ativo-id').value = '';
             }
             modalGerenciarAtivo.showModal();
+        }
+
+        function abrirModalEditarAlocacao() {
+            const container = document.getElementById('editar-classes-container');
+            container.innerHTML = ''; // Limpa o conteúdo anterior
+            portfolio.classes.forEach(classe => {
+                adicionarLinhaClasseEdit(classe);
+            });
+            atualizarTotalPorcentagemEdit();
+            modalEditarAlocacao.showModal();
+        }
+
+        function adicionarLinhaClasseEdit(classe = null) {
+            const container = document.getElementById('editar-classes-container');
+            const div = document.createElement('div');
+            div.className = 'classe-edit-row';
+            div.dataset.classeId = classe ? classe.id : '';
+            
+            div.innerHTML = `
+                <input type="text" name="classe-nome" placeholder="Nome da Classe" value="${classe ? classe.nome : ''}" required>
+                <input type="number" name="classe-alvo" placeholder="% Alvo" min="0" max="100" value="${classe ? classe.alvo : ''}" required>
+                <button type="button" class="contrast outline btn-remover-classe-edit">X</button>
+            `;
+            container.appendChild(div);
+
+            div.querySelector('.btn-remover-classe-edit').addEventListener('click', () => {
+                div.remove();
+                atualizarTotalPorcentagemEdit();
+            });
+        }
+
+        function atualizarTotalPorcentagemEdit() {
+            const container = document.getElementById('editar-classes-container');
+            const alvos = Array.from(container.querySelectorAll('[name="classe-alvo"]')).map(i => parseFloat(i.value) || 0);
+            const total = alvos.reduce((sum, val) => sum + val, 0);
+            document.getElementById('total-porcentagem-edit').textContent = total.toFixed(2);
+            
+            const feedbackEl = document.getElementById('feedback-porcentagem-edit');
+            const btnSalvar = document.getElementById('btn-salvar-alocacao');
+
+            if (Math.abs(total - 100) < 0.01) {
+                btnSalvar.disabled = false;
+                feedbackEl.textContent = "Total de 100% atingido. Pode salvar!";
+                feedbackEl.style.color = 'var(--pico-color-green-500)';
+            } else {
+                btnSalvar.disabled = true;
+                feedbackEl.textContent = `A soma deve ser 100% (atual: ${total.toFixed(2)}%).`;
+                feedbackEl.style.color = 'var(--pico-color-red-500)';
+            }
+            feedbackEl.classList.remove('hidden');
+        }
+
+        function mostrarConfirmacao(mensagem, onConfirm) {
+            const msgEl = document.getElementById('confirmacao-mensagem');
+            const confirmBtn = document.getElementById('btn-confirmar-acao');
+            const cancelBtn = document.getElementById('btn-cancelar-confirmacao');
+
+            msgEl.textContent = mensagem;
+            
+            const confirmHandler = () => {
+                onConfirm();
+                modalConfirmacao.close();
+                cleanup();
+            };
+
+            const cancelHandler = () => {
+                modalConfirmacao.close();
+                cleanup();
+            };
+            
+            const cleanup = () => {
+                confirmBtn.removeEventListener('click', confirmHandler);
+                cancelBtn.removeEventListener('click', cancelHandler);
+            };
+
+            confirmBtn.addEventListener('click', confirmHandler);
+            cancelBtn.addEventListener('click', cancelHandler);
+
+            modalConfirmacao.showModal();
         }
 
         function formatarMoeda(valor) {
