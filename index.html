@@ -256,7 +256,7 @@
         </article>
     </dialog>
     
-    <!-- Modal para Editar Alocação (NOVO) -->
+    <!-- Modal para Editar Alocação -->
     <dialog id="modal-editar-alocacao">
         <article>
             <header>
@@ -282,7 +282,7 @@
         </article>
     </dialog>
 
-    <!-- Modal de Confirmação Genérico (NOVO) -->
+    <!-- Modal de Confirmação Genérico -->
     <dialog id="modal-confirmacao">
         <article class="modal-content">
              <header>
@@ -339,7 +339,21 @@
 
         function carregarPortfolio() {
             const data = localStorage.getItem(STORAGE_KEY);
-            portfolio = data ? JSON.parse(data) : null;
+            if (!data) {
+                portfolio = null;
+                return;
+            }
+            
+            portfolio = JSON.parse(data);
+
+            // CORREÇÃO: Migração de dados para usuários da versão antiga
+            if (portfolio && portfolio.classes && portfolio.classes.length > 0 && !portfolio.classes[0].id) {
+                console.log('Migrando dados antigos da carteira...');
+                portfolio.classes.forEach((classe, index) => {
+                    classe.id = 'c' + Date.now() + index;
+                });
+                salvarPortfolio(); // Salva a estrutura corrigida de volta
+            }
         }
         
         // =====================================================================
@@ -595,11 +609,17 @@
 
             if (target.matches('.btn-remover-ativo')) {
                 const classe = portfolio.classes.find(c => c.id === classeId);
-                const ativo = classe.ativos[ativoIndex];
+                if (!classe) return;
+                const ativo = classe.ativos[parseInt(ativoIndex, 10)];
+                if (!ativo) return;
+
                 mostrarConfirmacao(`Tem certeza que deseja remover o ativo ${ativo.nome}?`, () => {
-                    classe.ativos.splice(ativoIndex, 1);
-                    salvarPortfolio();
-                    render();
+                    const index = parseInt(ativoIndex, 10);
+                    if (!isNaN(index)) {
+                        classe.ativos.splice(index, 1);
+                        salvarPortfolio();
+                        render();
+                    }
                 });
             }
         });
@@ -616,9 +636,13 @@
             };
 
             const classe = portfolio.classes.find(c => c.id === classeId);
+            if (!classe) return;
 
             if (ativoId) { // Editando
-                classe.ativos[ativoId] = ativoData;
+                const index = parseInt(ativoId, 10);
+                if (!isNaN(index)) {
+                    classe.ativos[index] = ativoData;
+                }
             } else { // Adicionando
                 if (!classe.ativos) classe.ativos = [];
                 classe.ativos.push(ativoData);
@@ -662,7 +686,6 @@
             });
 
             if (Math.abs(total - 100) > 0.01) {
-                // A validação no botão já previne, mas é uma segurança extra
                 return;
             }
 
@@ -686,15 +709,21 @@
         // =====================================================================
 
         function abrirModalGerenciarAtivo(classeId, ativoIndex = null) {
+            const classe = portfolio.classes.find(c => c.id === classeId);
+            if (!classe) {
+                console.error("Classe não encontrada para o ID:", classeId);
+                return;
+            }
+
             formGerenciarAtivo.reset();
             document.getElementById('input-classe-id').value = classeId;
             const modalTitulo = document.getElementById('modal-ativo-titulo');
-            const classe = portfolio.classes.find(c => c.id === classeId);
             
-            if (ativoIndex !== null && classe && classe.ativos[ativoIndex]) { // Editando
+            if (ativoIndex !== null && classe.ativos && classe.ativos[parseInt(ativoIndex, 10)]) { // Editando
                 modalTitulo.textContent = `Editar Ativo em ${classe.nome}`;
-                const ativo = classe.ativos[ativoIndex];
-                document.getElementById('input-ativo-id').value = ativoIndex;
+                const index = parseInt(ativoIndex, 10);
+                const ativo = classe.ativos[index];
+                document.getElementById('input-ativo-id').value = index;
                 document.getElementById('input-ativo-nome').value = ativo.nome;
                 document.getElementById('input-ativo-quantidade').value = ativo.quantidade;
                 document.getElementById('input-ativo-preco-medio').value = ativo.precoMedio;
